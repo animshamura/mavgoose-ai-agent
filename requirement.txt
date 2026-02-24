@@ -4,7 +4,7 @@ twilio
 python-dotenv 
 openai
 python-multipart
-langchain 
+langchain==0.0.302
 faiss-cpu 
 pypdf 
 tiktoken
@@ -13,3 +13,4 @@ langchain-openai
 langchain-text-splitters
 requests
 pytz
+
