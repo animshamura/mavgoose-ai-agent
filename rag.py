@@ -5,8 +5,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain.chat_models import ChatOpenAI
-from langchain.prompts.chat import ChatPromptTemplate
-from langchain.chains import RetrievalQA
 from auth import get_auth_token
 import pickle
 
@@ -130,4 +128,5 @@ def rebuild_vectorstore():
     )
 
     print("✅ Vectorstore rebuilt and saved successfully")
+
     return retriever
