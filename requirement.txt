@@ -1,0 +1,16 @@
+fastapi 
+uvicorn 
+twilio 
+python-dotenv 
+openai
+python-multipart
+langchain 
+faiss-cpu 
+pypdf 
+tiktoken
+langchain-community 
+langchain-openai
+langchain-text-splitters
+requests
+pytz
+langchain==0.0.302

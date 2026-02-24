@@ -1,0 +1,436 @@
+[
+    {
+        "phone_number": "+8801712345678",
+        "issue": "Oil change pricing inquiry",
+        "store": 3,
+        "call_type": "AI_RESOLVED",
+        "outcome": "QUOTE_PROVIDED",
+        "duration": "245",
+        "started_at": "2026-02-17T22:50:12.512Z",
+        "ended_at": "2026-02-17T22:54:17.512Z",
+        "audio_url": "https://api.twilio.com/2010-04-01/Accounts/ACxxxxxxxx/Recordings/RExxxxxxxx",
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "Hi, I wanted to know how much an oil change costs."
+            },
+            {
+                "speaker": "AI",
+                "message": "Sure! An oil change costs $49.99 for standard vehicles."
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "Does that include synthetic oil?"
+            },
+            {
+                "speaker": "AI",
+                "message": "Synthetic oil is available for $69.99."
+            },
+            {
+                "speaker": "AI",
+                "message": "Would you like to book an appointment?"
+            }
+        ]
+    },
+    {
+        "phone_number": null,
+        "issue": "iphone",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "TRANSFERRED_TO_MANAGER",
+        "duration": "11",
+        "started_at": "2026-02-20T00:02:51.606457",
+        "ended_at": "2026-02-20T00:03:02.933212",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "iphone"
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify which iPhone model you need information about? We offer repairs for various models, including the iPhone 6, 15, and 16 Plus."
+            }
+        ]
+    },
+    {
+        "phone_number": null,
+        "issue": "IPHONE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "TRANSFERRED_TO_MANAGER",
+        "duration": "8",
+        "started_at": "2026-02-20T00:06:07.288376",
+        "ended_at": "2026-02-20T00:06:16.230894",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "IPHONE"
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify which iPhone model you need information about?"
+            }
+        ]
+    },
+    {
+        "phone_number": null,
+        "issue": "IPHONE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "TRANSFERRED_TO_MANAGER",
+        "duration": "6",
+        "started_at": "2026-02-20T00:07:12.205126",
+        "ended_at": "2026-02-20T00:07:18.586766",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "IPHONE"
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify which iPhone model you need information about?"
+            }
+        ]
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "13",
+        "started_at": "2026-02-22T19:01:46.512095",
+        "ended_at": "2026-02-22T19:01:59.766267",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "0",
+        "started_at": "2026-02-22T19:05:40.224738",
+        "ended_at": "2026-02-22T19:05:40.225255",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "11",
+        "started_at": "2026-02-22T19:11:54.466505",
+        "ended_at": "2026-02-22T19:12:06.299943",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "11",
+        "started_at": "2026-02-22T19:33:50.697989",
+        "ended_at": "2026-02-22T19:34:02.072423",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "5",
+        "started_at": "2026-02-22T19:35:00.948503",
+        "ended_at": "2026-02-22T19:35:06.612006",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "15",
+        "started_at": "2026-02-22T19:42:44.682632",
+        "ended_at": "2026-02-22T19:42:59.970831",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": null,
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "6",
+        "started_at": "2026-02-22T19:44:59.520007",
+        "ended_at": "2026-02-22T19:45:05.911371",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": null,
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "45",
+        "started_at": "2026-02-22T19:50:53.529128",
+        "ended_at": "2026-02-22T19:51:38.939236",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "I WANT TO FIX IPHONE"
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify which iPhone model you need to fix? We offer LCD repair services for various models."
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "16"
+            },
+            {
+                "speaker": "AI",
+                "message": "It seems you mentioned \"16.\" Are you referring to the Samsung A16? The repair price for that model is $106.80. Would you like more information on the repair process?"
+            }
+        ]
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "41",
+        "started_at": "2026-02-22T21:13:56.341607",
+        "ended_at": "2026-02-22T21:14:37.840267",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "I want to fix my iPhone."
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify the model of your iPhone? This will help me provide you with the correct repair pricing."
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "My iPhone model is 16."
+            },
+            {
+                "speaker": "AI",
+                "message": "For your iPhone 16, we offer the following repairs at our Lynnhaven store:\n\n- Camera Glass repair for $130.00\n- Back Glass repair for $279.99\n\nWould you like to schedule a repair?"
+            }
+        ]
+    },
+    {
+        "phone_number": null,
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "27",
+        "started_at": "2026-02-22T21:46:59.639654",
+        "ended_at": "2026-02-22T21:47:27.092090",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "i want to fix my i phone "
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify which model of iPhone you need to fix?"
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "16"
+            },
+            {
+                "speaker": "AI",
+                "message": "I can assist with iPhone repairs, but I need to know the specific issue you're experiencing. Could you provide more details?"
+            }
+        ]
+    },
+    {
+        "phone_number": null,
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "0",
+        "started_at": "2026-02-22T22:02:18.030731",
+        "ended_at": "2026-02-22T22:02:18.030769",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "68",
+        "started_at": "2026-02-23T17:32:43.781685",
+        "ended_at": "2026-02-23T17:33:51.998469",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "I want to fix my iPhone."
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify the model of your iPhone? This will help me provide you with the repair pricing."
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "My iPhone model is 16."
+            },
+            {
+                "speaker": "AI",
+                "message": "For the iPhone 16, we offer the following repairs at our Lynnhaven store: \n\n- Camera Glass repair for $130.00\n- Back Glass repair for $279.99\n\nWould you like to schedule a repair?"
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "Yes, I would like to schedule a repair."
+            },
+            {
+                "speaker": "AI",
+                "message": "I can help you with that! Please provide your preferred date and time for the repair appointment at our Lynnhaven store."
+            }
+        ]
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "13",
+        "started_at": "2026-02-23T17:35:57.703307",
+        "ended_at": "2026-02-23T17:36:10.905431",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "84",
+        "started_at": "2026-02-23T17:44:29.699979",
+        "ended_at": "2026-02-23T17:45:53.828443",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "I want to fix my Samsung."
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify the model of your Samsung device and the type of repair you need?"
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "Model is a 20 and I want to repair bag glass."
+            },
+            {
+                "speaker": "AI",
+                "message": "The repair for the Samsung A20 back glass at our Lynnhaven store is priced at $76.99. Would you like to schedule an appointment?"
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "Yeah, I want to schedule a appointment."
+            },
+            {
+                "speaker": "AI",
+                "message": "I can help with that! Please provide me with your preferred date and time for the appointment."
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "I want to fix the schedule on 27th. February at 6:00 p.m."
+            },
+            {
+                "speaker": "AI",
+                "message": "I can help you with that! Your appointment for the Samsung A20 back glass repair is scheduled for February 27th at 6:00 p.m. If you need to make any changes, just let me know!"
+            }
+        ]
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "12",
+        "started_at": "2026-02-23T19:07:28.976275",
+        "ended_at": "2026-02-23T19:07:41.314571",
+        "audio_url": null,
+        "transcripts": []
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN_ISSUE",
+        "store": "1",
+        "call_type": "WARM_TRANSFER",
+        "outcome": "ESCALATED",
+        "duration": "65",
+        "started_at": "2026-02-23T20:58:30.385234",
+        "ended_at": "2026-02-23T20:59:35.484615",
+        "audio_url": null,
+        "transcripts": [
+            {
+                "speaker": "CUSTOMER",
+                "message": "I want to fix my iPhone."
+            },
+            {
+                "speaker": "AI",
+                "message": "Could you please specify the model of your iPhone? I can provide you with the repair pricing."
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "I would like 2016. I want to fix my"
+            },
+            {
+                "speaker": "AI",
+                "message": "It seems like you mentioned wanting to fix an iPhone from 2016. If it's an iPhone 6, the LCD repair is priced at $79.99. Would you like to schedule a repair?"
+            },
+            {
+                "speaker": "CUSTOMER",
+                "message": "Yes, I want to schedule a repair."
+            },
+            {
+                "speaker": "AI",
+                "message": "I can help with that! Please provide me with your contact information and preferred date and time for the repair."
+            }
+        ]
+    },
+    {
+        "phone_number": "+8801335117990",
+        "issue": "UNKNOWN",
+        "store": "1",
+        "call_type": "DROPPED",
+        "outcome": "CALL_DROPPED",
+        "duration": "9",
+        "started_at": "2026-02-23T21:59:49.454867",
+        "ended_at": "2026-02-23T21:59:58.767871",
+        "audio_url": "https://nonraised-unmensurable-daxton.ngrok-free.dev/recordings/CA582d90991f82c9e7fe5e1d8abb6058e2.mp3",
+        "transcripts": []
+    }
+]

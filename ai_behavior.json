@@ -1,0 +1,66 @@
+{
+    "id": 1,
+    "store": 1,
+    "tone": "professional",
+    "retry_attempts_before_transfer": 3,
+    "fallback_response": "Sorry, I didn\u2019t quite catch that. Let me connect you with a human agent...",
+    "greetings": {
+        "opening_hours_greeting": "Hello! \ud83d\udc4b Thanks for calling.\nThis is Lynnhaven.",
+        "closed_hours_message": "Thanks for reaching out..................\nUlululululululululululululululul................"
+    },
+    "business_hours": [
+        {
+            "day": 0,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "18:00:00"
+        },
+        {
+            "day": 1,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "18:00:00"
+        },
+        {
+            "day": 2,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "09:00:00"
+        },
+        {
+            "day": 3,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "09:00:00"
+        },
+        {
+            "day": 4,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "09:00:00"
+        },
+        {
+            "day": 5,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "09:00:00"
+        },
+        {
+            "day": 6,
+            "is_open": true,
+            "open_time": "09:00:00",
+            "close_time": "09:00:00"
+        }
+    ],
+    "auto_transfer_keywords": [
+        {
+            "keyword": "manager"
+        },
+        {
+            "keyword": "ok"
+        },
+        {
+            "keyword": "support"
+        }
+    ]
+}
