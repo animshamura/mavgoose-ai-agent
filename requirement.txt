@@ -13,4 +13,3 @@ langchain-openai
 langchain-text-splitters
 requests
 pytz
-langchain==0.0.302
