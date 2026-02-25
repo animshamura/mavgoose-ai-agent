@@ -101,32 +101,24 @@ retriever = build_vectorstore()
 # 5️⃣ REBUILD VECTORSTORE (Optional)
 # ==========================================
 def rebuild_vectorstore():
-    """
-    Rebuild the FAISS vectorstore if pricing data updates.
-    This will regenerate embeddings and update the saved .pkl file.
-    """
     global retriever
     print("🔄 Rebuilding vectorstore & updating cache...")
 
-    # Rebuild vectorstore from fresh API data
     documents = fetch_pricing_documents()
     if not documents:
         print("⚠️ No documents found. Skipping rebuild.")
         return retriever
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
     vectorstore = FAISS.from_documents(documents, embeddings)
 
-    # Save updated vectorstore to disk
-    save_vectorstore(vectorstore, "./cache/vectorstore.pkl")
+    # Save vectorstore consistently with FAISS
+    VECTORSTORE_PATH = "./cache/vectors"
+    vectorstore.save_local(VECTORSTORE_PATH)
 
-    # Update retriever globally
-    retriever = vectorstore.as_retriever(
-        search_type="similarity",
-        search_kwargs={"k": 3}
-    )
-
+    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
     print("✅ Vectorstore rebuilt and saved successfully")
 
     return retriever
+
 
