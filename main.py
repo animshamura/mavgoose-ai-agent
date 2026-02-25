@@ -558,7 +558,7 @@ async def update_system():
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"System update failed: {str(e)}"
+            detail=f"RAG update failed: {str(e)}"
         )
 
 
@@ -650,3 +650,4 @@ async def recording_complete(request: Request):
 
 
     return "", 200
+
