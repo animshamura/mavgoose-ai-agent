@@ -31,6 +31,7 @@ CALL_LOG_API_URL = f"{BASE_URL}/api/v1/call/details/"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 STORE_NAME = os.getenv("STORE_NAME")
 PUBLIC_URL = os.getenv("PUBLIC_URL")
+AUDIO_URL = os.getenv("AUDIO_URL")
 TOKEN = get_auth_token()
 app = FastAPI()
 
@@ -56,7 +57,7 @@ async def send_call_log(call_sid: str):
 
         session = CALL_SESSIONS[call_sid]
 
-        url = f"{PUBLIC_URL}/recordings/{call_sid}.mp3"
+        url = f"{AUDIO_URL}/{call_sid}.mp3"
 
         payload = {
             "phone_number": session.get("phone_number"),
@@ -646,5 +647,6 @@ async def recording_complete(request: Request):
             CALL_SESSIONS[call_sid]["audio_url"] = full_file
 
             print(f"✅ Full call recording saved as {full_file}")
+
 
     return "", 200
