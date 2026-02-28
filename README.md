@@ -21,7 +21,7 @@ Voice responses are handled using **Twilio**, which converts AI-generated TwiML 
 
 ## 🏗️ System Design
 <p align="center">
-  <img src="./system-design.png" alt="System Design" width="700"/>
+  <img src="./ai_system.png" alt="System Design" width="700"/>
 </p>
 
 ## 🔐 Environment Variables
