@@ -1,4 +1,4 @@
-# Mavgoose AI Voice Agent
+# Mavgoose AI Agent
 
 Mavgoose AI Agent is a voice-based AI system that handles customer phone calls for **uBreakiFix** (mobile repairing store).
 
