@@ -20,7 +20,9 @@ The agent answers repair-related questions, sets appointments, transfers calls t
 Voice responses are handled using **Twilio**, which converts AI-generated TwiML (XML) into real audio.
 
 ## 🏗️ System Design
-![System Design](./ai_system.png)
+<p align="center">
+  <img src="./system-design.png" alt="System Design" width="700"/>
+</p>
 
 ## 🔐 Environment Variables
 
