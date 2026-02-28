@@ -4,8 +4,6 @@ Mavgoose AI Agent is a voice-based AI system that handles customer phone calls f
 
 The agent answers repair-related questions, sets appointments, transfers calls to a manager when needed, and logs all call details automatically.
 
----
-
 ## 🚀 Features
 
 * 📞 Handles incoming phone calls
@@ -21,7 +19,6 @@ The agent answers repair-related questions, sets appointments, transfers calls t
 
 Voice responses are handled using **Twilio**, which converts AI-generated TwiML (XML) into real audio.
 
----
 ## System Design
 ![System Design](./ai_system.png)
 
@@ -43,7 +40,6 @@ PUBLIC_URL=
 MANAGER_NUMBER=
 ```
 
----
 
 ## 📂 Basic Project Structure
 
@@ -61,7 +57,6 @@ mavgoose-ai-agent/
 └── requirements.txt
 ```
 
----
 
 ## 🎯 Purpose
 
@@ -71,5 +66,4 @@ mavgoose-ai-agent/
 * Enable phone-based appointment booking
 * Allow smart call transfer to manager
 
----
 
