@@ -452,14 +452,27 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
                     return Response(response.to_xml(), media_type="application/xml")
 
         # Appointment booking
-        if any(word in lower_speech for word in ["appointment", "book", "schedule"]):
-            call_memory["call_type"] = "APPOINTMENT"
-            call_memory["outcome"] = "APPOINTMENT_BOOKED"
-            try:
+             if any(word in lower_speech for word in ["appointment", "book", "schedule"]):
+                 call_memory["call_type"] = "APPOINTMENT"
+                 call_memory["outcome"] = "APPOINTMENT_BOOKED"
+
+    # Say confirmation first
+            response.say(
+            "Thank you! I have sent the appointment link. You can get your appointment from there.",
+             voice="alice"
+            )
+            response.hangup()
+
+           # Send appointment link (sync) and call log (async) in background
+           try:
                 send_appointment_link(call_memory["phone_number"])
-                await send_call_log(call_sid)
-            except Exception as e:
+           except Exception as e:
                 print("❌ Failed sending appointment link:", e)
+
+    # Send call log asynchronously in background
+           background_tasks.add_task(send_call_log, call_sid)
+
+           return Response(response.to_xml(), media_type="application/xml")
 
         # RAG + AI
         if retriever is None:
@@ -651,6 +664,7 @@ async def recording_complete(request: Request):
 
 
     return "", 200
+
 
 
 
