@@ -25,17 +25,10 @@ if not STORE_ID:
 
 PRICING_API_URL = f"{API_BASE_URL}/api/v1/services/price-list/?store={STORE_ID}"
 
-VECTORSTORE_PATH = "./cache/vectors"  # ✅ folder
+VECTORSTORE_PATH = "./cache/vectors"
+EMBEDDINGS_CACHE_PATH = "./cache/embeddings.pkl"
 
-# Make sure folder exists
-
-def save_vectorstore(vectorstore, path=VECTORSTORE_PATH):
-    with open(path, "wb") as f:
-        pickle.dump(vectorstore, f)
-
-def load_vectorstore(path=VECTORSTORE_PATH):
-    with open(path, "rb") as f:
-        return pickle.load(f)
+os.makedirs("./cache", exist_ok=True)
 
 # ==========================================
 # 1️⃣ FETCH PRICING DATA
@@ -76,7 +69,28 @@ Price: ${item.get("price")}
     return documents
 
 # ==========================================
-# 2️⃣ BUILD VECTORSTORE
+# 2️⃣ CACHE / LOAD EMBEDDINGS
+# ==========================================
+def get_cached_embeddings(documents):
+    """
+    Generate embeddings for documents, cache them locally.
+    """
+    if os.path.exists(EMBEDDINGS_CACHE_PATH):
+        with open(EMBEDDINGS_CACHE_PATH, "rb") as f:
+            print("✅ Loaded cached embeddings")
+            return pickle.load(f)
+
+    embeddings_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    embeddings_list = [embeddings_model.embed_query(doc.page_content) for doc in documents]
+
+    with open(EMBEDDINGS_CACHE_PATH, "wb") as f:
+        pickle.dump(embeddings_list, f)
+        print("✅ Saved embeddings cache")
+
+    return embeddings_list
+
+# ==========================================
+# 3️⃣ BUILD VECTORSTORE
 # ==========================================
 def build_vectorstore():
     documents = fetch_pricing_documents()
@@ -84,23 +98,39 @@ def build_vectorstore():
         print("⚠️ No documents found. Skipping vectorstore build.")
         return None
 
-    embeddings = OpenAIEmbeddings()
-    vectorstore = FAISS.from_documents(documents, embeddings)
-
-    # Save locally for future fast loads
-    vectorstore.save_local(VECTORSTORE_PATH) 
+    embeddings_list = get_cached_embeddings(documents)
+    vectorstore = FAISS.from_documents(documents, OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY))
+    vectorstore.save_local(VECTORSTORE_PATH)
+    print("✅ Vectorstore built and cached successfully")
 
     retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-    print("✅ Vectorstore built and cached successfully")
     return retriever
 
+# ==========================================
+# 4️⃣ LOAD OR BUILD VECTORSTORE
+# ==========================================
+def load_or_build_vectorstore():
+    if os.path.exists(VECTORSTORE_PATH):
+        try:
+            vectorstore = FAISS.load_local(VECTORSTORE_PATH, OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY))
+            print("✅ Vectorstore loaded from cache")
+            return vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+        except Exception as e:
+            print("⚠️ Failed to load vectorstore:", e)
+
+    # fallback: build new
+    return build_vectorstore()
+
 # Build retriever globally
-retriever = build_vectorstore()
+retriever = load_or_build_vectorstore()
 
 # ==========================================
 # 5️⃣ REBUILD VECTORSTORE (Optional)
 # ==========================================
 def rebuild_vectorstore():
+    """
+    Force rebuild of vectorstore and embeddings
+    """
     global retriever
     print("🔄 Rebuilding vectorstore & updating cache...")
 
@@ -109,16 +139,15 @@ def rebuild_vectorstore():
         print("⚠️ No documents found. Skipping rebuild.")
         return retriever
 
-    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-    vectorstore = FAISS.from_documents(documents, embeddings)
+    # Clear embeddings cache
+    if os.path.exists(EMBEDDINGS_CACHE_PATH):
+        os.remove(EMBEDDINGS_CACHE_PATH)
 
-    # Save vectorstore consistently with FAISS
-    VECTORSTORE_PATH = "./cache/vectors"
+    embeddings_list = get_cached_embeddings(documents)
+
+    vectorstore = FAISS.from_documents(documents, OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY))
     vectorstore.save_local(VECTORSTORE_PATH)
 
     retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
     print("✅ Vectorstore rebuilt and saved successfully")
-
     return retriever
-
-
