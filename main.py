@@ -446,9 +446,9 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
                 if manager_number:
                     call_memory["call_type"] = "WARM_TRANSFER"
                     call_memory["outcome"] = "ESCALATED"
-                    await send_call_log(call_sid)
                     response.say("Connecting you to a human agent.", voice="alice")
                     response.dial(manager_number, timeout=20)
+                    await send_call_log(call_sid)
                     return Response(response.to_xml(), media_type="application/xml")
 
         # Appointment booking
@@ -457,6 +457,7 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
             call_memory["outcome"] = "APPOINTMENT_BOOKED"
             try:
                 send_appointment_link(call_memory["phone_number"])
+                await send_call_log(call_sid)
             except Exception as e:
                 print("❌ Failed sending appointment link:", e)
 
@@ -650,5 +651,6 @@ async def recording_complete(request: Request):
 
 
     return "", 200
+
 
 
