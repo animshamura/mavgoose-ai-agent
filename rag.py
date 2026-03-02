@@ -129,25 +129,36 @@ retriever = load_or_build_vectorstore()
 # ==========================================
 def rebuild_vectorstore():
     """
-    Force rebuild of vectorstore and embeddings
+    Force rebuild of vectorstore using fresh pricing data and embeddings.
     """
     global retriever
     print("🔄 Rebuilding vectorstore & updating cache...")
 
     documents = fetch_pricing_documents()
     if not documents:
-        print("⚠️ No documents found. Skipping rebuild.")
+        print("⚠ No documents found. Skipping rebuild.")
         return retriever
 
-    # Clear embeddings cache
+    # Remove old FAISS index folder
+    if os.path.exists(VECTORSTORE_PATH):
+        import shutil
+        shutil.rmtree(VECTORSTORE_PATH)
+        print("✅ Old vectorstore cleared")
+
+    # Remove old embeddings cache
     if os.path.exists(EMBEDDINGS_CACHE_PATH):
         os.remove(EMBEDDINGS_CACHE_PATH)
+        print("✅ Old embeddings cache cleared")
 
-    embeddings_list = get_cached_embeddings(documents)
+    # Create fresh embeddings
+    embeddings_model = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    embeddings_list = [embeddings_model.embed_query(doc.page_content) for doc in documents]
 
-    vectorstore = FAISS.from_documents(documents, OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY))
+    # Build FAISS from fresh documents & embeddings
+    vectorstore = FAISS.from_documents(documents, embeddings_model)
     vectorstore.save_local(VECTORSTORE_PATH)
 
     retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
     print("✅ Vectorstore rebuilt and saved successfully")
+
     return retriever
