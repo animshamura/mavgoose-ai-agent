@@ -9,7 +9,7 @@ from fastapi.responses import Response
 from twilio.twiml.voice_response import VoiceResponse, Gather
 from openai import OpenAI
 from dotenv import load_dotenv
-from rag import build_vectorstore, rebuild_vectorstore
+from rag import build_vectorstore, rebuild_vectorstore, load_or_build_vectorstore
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from twilio.base.exceptions import TwilioRestException
 import secrets
@@ -56,8 +56,10 @@ async def send_call_log(call_sid: str):
             return
 
         session = CALL_SESSIONS[call_sid]
-
-        url = f"{AUDIO_URL}/{call_sid}.mp3"
+        total_seconds = int((datetime.utcnow() - session["started_at"]).total_seconds())
+        minutes = total_seconds // 60
+        seconds = total_seconds % 60
+        url = f"{AUDIO_URL}/{call_sid}_1.mp3"
 
         payload = {
             "phone_number": session.get("phone_number"),
@@ -65,9 +67,7 @@ async def send_call_log(call_sid: str):
             "store": session.get("store_id"),
             "call_type": session.get("call_type", "AI_RESOLVED"),
             "outcome": session.get("outcome", "QUOTE_PROVIDED"),
-            "duration": str(
-                int((datetime.utcnow() - session["started_at"]).total_seconds())
-            ),
+            "duration": f"{minutes:02}:{seconds:02}",
             "started_at": session.get("started_at").isoformat(),
             "ended_at": datetime.utcnow().isoformat(),
             "audio_url": url,
@@ -75,7 +75,7 @@ async def send_call_log(call_sid: str):
         }
 
         # =====================================
-        # 1️⃣ SAVE LOCALLY TO JSON FILE
+        # 1⃣ SAVE LOCALLY TO JSON FILE
         # =====================================
         data = [] 
 
@@ -101,7 +101,7 @@ async def send_call_log(call_sid: str):
         print("💾 Saved locally to JSON")
 
         # =====================================
-        # 2️⃣ SEND TO /save-call-log ENDPOINT
+        # 2⃣ SEND TO /save-call-log ENDPOINT
         # =====================================
 
         async with httpx.AsyncClient() as client:
@@ -345,12 +345,74 @@ async def start_call_recording(call_sid: str):
             lambda: twilio_client.calls(call_sid).recordings.create(
                 recording_channels="dual",  # records both sides
                 recording_status_callback=f"{PUBLIC_URL}/recording-status",
-                recording_status_callback_method="POST"
+                recording_status_callback_method="POST",
+                recording_status_callback_event=["in-progress", "completed"]
             )
         )
         print(f"[RECORDING] Started recording for call {call_sid}")
     except Exception as e:
         print(f"[RECORDING] Failed to start recording for {call_sid}: {e}")
+
+def is_exit_intent(speech: str) -> bool:
+    if not speech:
+        return False
+
+    exit_phrases = [
+        "no thank you",
+        "no thanks",
+        "thanks but no thanks",
+        "that's all",
+        "that’s it",
+        "nothing else",
+        "nothing else today",
+        "nothing more",
+        "i'm good",
+        "i’m good thanks",
+        "i'm all set",
+        "i’m all set thanks",
+        "i'm okay",
+        "that’s fine",
+        "that works for me",
+        "that should do it",
+        "that covers it",
+        "that does it",
+        "that'll do",
+        "that sounds good",
+        "sounds good",
+        "thanks",
+        "thank you",
+        "thanks a lot",
+        "thank you so much",
+        "appreciate it",
+        "i appreciate it",
+        "thanks for your help",
+        "thanks for your time",
+        "thanks for the info",
+        "alright thanks",
+        "okay thanks",
+        "ok thanks",
+        "great thanks",
+        "perfect thanks",
+        "that answers my question",
+        "that helps",
+        "that clears it up",
+        "that makes sense",
+        "that explains it",
+        "bye",
+        "goodbye",
+        "have a good day",
+        "have a great day",
+        "talk to you later",
+        "alright bye",
+        "okay bye",
+        "i'll think about it",
+        "i'll get back to you",
+        "that's all i needed"
+    ]
+
+    speech = speech.lower().strip()
+
+    return any(phrase in speech for phrase in exit_phrases)
 
 # ==========================================
 # ROUTES
@@ -374,6 +436,7 @@ async def root(request: Request, background_tasks: BackgroundTasks):
 @app.post("/voice")
 async def voice(request: Request, background_tasks: BackgroundTasks):
     try:
+
         form = await request.form()
         form_data = dict(form)
 
@@ -404,9 +467,10 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
 
         # ----------------- Handle first greeting and speech -----------------
         if not speech:
+           
             open_status = is_business_open(behavior_data)
             greetings = behavior_data.get("greetings", {})
-
+            
             if open_status:
                 greeting = greetings.get("opening_hours_greeting", "")
                 greeting = greeting.replace("{store_name}", STORE_NAME)
@@ -421,22 +485,39 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
                     language="en-US",
                     speechModel="phone_call"
                 )
+                call_memory["transcripts"].append({"speaker": "AI", "message": greeting})
                 response.append(gather)
-                return Response(response.to_xml(), media_type="application/xml")
+                return Response(content=str(response), media_type="application/xml")
             else:
                 closed_msg = greetings.get("closed_hours_message", "We are closed.")
                 call_memory["call_type"] = "DROPPED"
                 call_memory["outcome"] = "CALL_DROPPED"
+                call_memory["transcripts"].append({"speaker": "AI", "message": closed_msg})
                 await send_call_log(call_sid)
                 response.say(closed_msg, voice="alice")
                 response.hangup()
-                return Response(response.to_xml(), media_type="application/xml")
+                return Response(content=str(response), media_type="application/xml")
 
         # ----------------- Process speech and AI response -----------------
         if not call_memory["issue"]:
             call_memory["issue"] = detect_issue(speech)
 
         lower_speech = speech.lower()
+
+
+        if is_exit_intent(speech):
+            closing_message = f"Thank you for calling {STORE_NAME}. Have a great day."
+            response.say(closing_message, voice="alice")
+            
+            call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
+            call_memory["transcripts"].append({"speaker": "AI", "message": closing_message})
+            call_memory["call_type"] = "AI_RESOLVED"
+            call_memory["outcome"] = "QUOTE_PROVIDED"
+
+            response.hangup()
+            background_tasks.add_task(send_call_log, call_sid)
+
+            return Response(content=str(response), media_type="application/xml")
 
         # Manager transfer
         for item in behavior_data.get("auto_transfer_keywords", []):
@@ -446,34 +527,33 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
                 if manager_number:
                     call_memory["call_type"] = "WARM_TRANSFER"
                     call_memory["outcome"] = "ESCALATED"
+                    call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
+                    call_memory["transcripts"].append({"speaker": "AI", "message": "Connecting you to a human agent."})
                     response.say("Connecting you to a human agent.", voice="alice")
                     response.dial(manager_number, timeout=20)
                     await send_call_log(call_sid)
-                    return Response(response.to_xml(), media_type="application/xml")
+                    return Response(content=str(response), media_type="application/xml")
 
         # Appointment booking
-             if any(word in lower_speech for word in ["appointment", "book", "schedule"]):
-                 call_memory["call_type"] = "APPOINTMENT"
-                 call_memory["outcome"] = "APPOINTMENT_BOOKED"
-
-    # Say confirmation first
+        if any(word in lower_speech for word in ["appointment", "book", "schedule"]):
+            call_memory["call_type"] = "APPOINTMENT"
+            call_memory["outcome"] = "APPOINTMENT_BOOKED"
             response.say(
-            "Thank you! I have sent the appointment link. You can get your appointment from there.",
-             voice="alice"
+               "Thank you! I have sent the appointment link. You can get your appointment from there.",
+               voice="alice"
             )
+            call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
+            call_memory["transcripts"].append({"speaker": "AI", "message": "Thank you! I have sent the appointment link. You can get your appointment from there." })
             response.hangup()
 
-           # Send appointment link (sync) and call log (async) in background
-           try:
+            try:
                 send_appointment_link(call_memory["phone_number"])
-           except Exception as e:
+            except Exception as e:
                 print("❌ Failed sending appointment link:", e)
+            
+            background_tasks.add_task(send_call_log, call_sid)
 
-    # Send call log asynchronously in background
-           background_tasks.add_task(send_call_log, call_sid)
-
-           return Response(response.to_xml(), media_type="application/xml")
-
+            return Response(content=str(response), media_type="application/xml")
         # RAG + AI
         if retriever is None:
             call_memory["call_type"] = "DROPPED"
@@ -481,7 +561,7 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
             await send_call_log(call_sid)
             response.say("System is initializing. Please try again shortly.", voice="alice")
             response.hangup()
-            return Response(response.to_xml(), media_type="application/xml")
+            return Response(content=str(response), media_type="application/xml")
 
         try:
             docs = retriever.invoke(speech)
@@ -491,7 +571,7 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
 
         context = "\n\n".join([doc.page_content for doc in docs if hasattr(doc, "page_content")]) if docs else ""
 
-        tone = behavior_data.get("tone", "professional")
+        tone = behavior_data.get("tone", "friendly")
         system_behavior = f"""
 You are a retail call assistant for {STORE_NAME}.
 VOICE STYLE:
@@ -499,7 +579,7 @@ VOICE STYLE:
 RULES:
 - Answer ONLY from retrieved knowledge.
 - Keep responses short and voice-friendly.
-- If unsure, divert the call to manager.
+- If unsure, ask again.
 - Never mention internal documents.
 """
         messages = [{"role": "system", "content": system_behavior}]
@@ -514,7 +594,8 @@ RULES:
         ai_response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            temperature=0.3
+            temperature=0.2,
+            max_tokens=150
         )
         reply = ai_response.choices[0].message.content.strip()
 
@@ -540,7 +621,7 @@ RULES:
         )
         response.append(gather)
 
-        return Response(response.to_xml(), media_type="application/xml")
+        return Response(content=str(response), media_type="application/xml")
 
     except Exception as e:
         print("❌ ERROR:", e)
@@ -551,7 +632,7 @@ RULES:
         response = VoiceResponse()
         response.say("Sorry. There was a server error.", voice="alice")
         response.hangup()
-        return Response(response.to_xml(), media_type="application/xml")
+        return Response(content=str(response), media_type="application/xml")
 # ==========================================
 # SYSTEM UPDATE ENDPOINT
 # ==========================================
@@ -563,6 +644,7 @@ async def update_system():
     try:
         behavior_data = load_ai_behavior()
         print("System update endpoint got hit.")
+        print(get_dynamic_hours(behavior_data))
 
         return {
             "status": "success",
@@ -572,7 +654,7 @@ async def update_system():
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"RAG update failed: {str(e)}"
+            detail=f"System update failed: {str(e)}"
         )
 
 
@@ -582,10 +664,9 @@ async def update_system():
 
 
 @app.post("/update-rag")
-async def update_rag():
+async def update_rag(background_tasks: BackgroundTasks):
     try:
-        global retriever
-        retriever = rebuild_vectorstore()
+        background_tasks.add_task(rebuild_vectorstore)
         print("RAG update endpoint got hit.")
 
         return {
@@ -664,7 +745,3 @@ async def recording_complete(request: Request):
 
 
     return "", 200
-
-
-
-
