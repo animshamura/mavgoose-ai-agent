@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-#URL = os.getenv("PUBLIC_URL") + "/voice"
-URL = "http://localhost:8000/voice"
+URL = os.getenv("PUBLIC_URL") + "/voice"
+
 
 # ---- FIRST CALL (NO SPEECH) ----
 print("Simulating first call...\n")
@@ -35,3 +35,4 @@ while True:
     print("-" * 50)
 
     time.sleep(1)
+
