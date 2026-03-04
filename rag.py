@@ -31,7 +31,7 @@ EMBEDDINGS_CACHE_PATH = "./cache/embeddings.pkl"
 os.makedirs("./cache", exist_ok=True)
 
 # ==========================================
-# 1️⃣ FETCH PRICING DATA
+# 1⃣ FETCH PRICING DATA
 # ==========================================
 def fetch_pricing_documents():
     """
@@ -69,7 +69,7 @@ Price: ${item.get("price")}
     return documents
 
 # ==========================================
-# 2️⃣ CACHE / LOAD EMBEDDINGS
+# 2⃣ CACHE / LOAD EMBEDDINGS
 # ==========================================
 def get_cached_embeddings(documents):
     """
@@ -90,12 +90,12 @@ def get_cached_embeddings(documents):
     return embeddings_list
 
 # ==========================================
-# 3️⃣ BUILD VECTORSTORE
+# 3⃣ BUILD VECTORSTORE
 # ==========================================
 def build_vectorstore():
     documents = fetch_pricing_documents()
     if not documents:
-        print("⚠️ No documents found. Skipping vectorstore build.")
+        print("⚠ No documents found. Skipping vectorstore build.")
         return None
 
     embeddings_list = get_cached_embeddings(documents)
@@ -107,7 +107,7 @@ def build_vectorstore():
     return retriever
 
 # ==========================================
-# 4️⃣ LOAD OR BUILD VECTORSTORE
+# 4⃣ LOAD OR BUILD VECTORSTORE
 # ==========================================
 def load_or_build_vectorstore():
     if os.path.exists(VECTORSTORE_PATH):
@@ -116,16 +116,15 @@ def load_or_build_vectorstore():
             print("✅ Vectorstore loaded from cache")
             return vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
         except Exception as e:
-            print("⚠️ Failed to load vectorstore:", e)
+            print("⚠ Failed to load vectorstore:", e)
 
     # fallback: build new
     return build_vectorstore()
 
 # Build retriever globally
 retriever = load_or_build_vectorstore()
-
 # ==========================================
-# 5️⃣ REBUILD VECTORSTORE (Optional)
+# 5⃣ REBUILD VECTORSTORE (Optional)
 # ==========================================
 def rebuild_vectorstore():
     """
