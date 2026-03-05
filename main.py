@@ -2,7 +2,7 @@ import os
 import json
 import pytz
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 from fastapi import FastAPI, Request, Header, HTTPException, status, Depends
 from fastapi.responses import Response
@@ -41,6 +41,11 @@ CALL_SESSIONS = {}
 
 LOG_FILE = "calllog.json"
 
+rag_lock = asyncio.Lock()
+global retriever, behavior_data
+retriever = None 
+behavior_data = {} 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")  # folder where MP3s are
 
@@ -49,6 +54,27 @@ app.mount(
     StaticFiles(directory=RECORDINGS_DIR),
     name="recordings",
 )
+
+async def rebuild_vectorstore_safe():
+    global retriever
+
+    async with rag_lock:
+        retriever = rebuild_vectorstore()
+
+async def cleanup_sessions():
+    while True:
+        now = datetime.utcnow()
+        expired = []
+
+        for sid, session in CALL_SESSIONS.items():
+            if (now - session["started_at"]).seconds > 1800:
+                expired.append(sid)
+
+        for sid in expired:
+            CALL_SESSIONS.pop(sid, None)
+
+        await asyncio.sleep(300)
+
 
 async def send_call_log(call_sid: str):
     try:
@@ -414,20 +440,58 @@ def is_exit_intent(speech: str) -> bool:
 
     return any(phrase in speech for phrase in exit_phrases)
 
+def download_recording(call_sid: str, recording_url: str):
+    twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+
+    try:
+        if not recording_url:
+            return
+
+        download_url = f"{recording_url}.mp3"
+
+        r = requests.get(
+            download_url,
+            auth=(twilio_sid, twilio_token),
+            timeout=20
+        )
+        r.raise_for_status()
+
+        # Get index of segment
+        segment_index = len(CALL_SESSIONS.get(call_sid, {}).get("recordings", []))
+
+        file_path = os.path.join(RECORDINGS_DIR, f"{call_sid}_{segment_index}.mp3")
+
+        with open(file_path, "wb") as f:
+            f.write(r.content)
+
+        print(f"✅ Recording saved: {file_path}")
+
+    except requests.RequestException as e:
+        print(f"❌ Failed to download recording {call_sid}: {e}")
+
+
 # ==========================================
 # ROUTES
 # ==========================================
 
-@app.on_event("startup")
-async def startup_event():
-    global retriever, behavior_data
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
+@app.on_event("startup")
+async def startup():
+    global retriever, behavior_data
+    asyncio.create_task(cleanup_sessions())
     print("🚀 Server starting...")
     behavior_data = load_ai_behavior()
     print("AI Behavior Loaded")
-    retriever = build_vectorstore()
-    print("✅ RAG ready")
-    
+    try:
+      retriever = load_or_build_vectorstore()
+      print("✅ RAG ready")
+    except Exception as e:
+      print("RAG failed:", e)
+      retriever = None    
 
 @app.post("/")
 async def root(request: Request, background_tasks: BackgroundTasks):
@@ -435,19 +499,35 @@ async def root(request: Request, background_tasks: BackgroundTasks):
 
 @app.post("/voice")
 async def voice(request: Request, background_tasks: BackgroundTasks):
+
     try:
 
         form = await request.form()
         form_data = dict(form)
 
-        speech = form_data.get("SpeechResult")
+        speech = form_data.get("SpeechResult", "").strip()
         call_sid = form_data.get("CallSid")
         from_number = form_data.get("From")
 
         response = VoiceResponse()
 
-        # Initialize call session
+        # ---------------- CallSid safety ----------------
+        if not call_sid:
+            response.say("Call error occurred.", voice="alice")
+            return Response(content=str(response), media_type="application/xml")
+
+        # ---------------- CLEAN OLD SESSIONS ----------------
+        threshold = datetime.utcnow() - timedelta(hours=1)
+
+        global CALL_SESSIONS
+        CALL_SESSIONS = {
+            k: v for k, v in CALL_SESSIONS.items()
+            if v.get("started_at") and v["started_at"] > threshold
+        }
+
+        # ---------------- Initialize call session ----------------
         if call_sid not in CALL_SESSIONS:
+
             CALL_SESSIONS[call_sid] = {
                 "messages": [],
                 "phone_number": from_number,
@@ -457,23 +537,24 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
                 "store_id": ID,
                 "started_at": datetime.utcnow(),
                 "audio_url": None,
-                "transcripts": []
+                "transcripts": [],
+                "recording_started": False
             }
-
-            # --------- START FULL CALL RECORDING IN BACKGROUND ---------
-            background_tasks.add_task(start_call_recording, call_sid)
 
         call_memory = CALL_SESSIONS[call_sid]
 
-        # ----------------- Handle first greeting and speech -----------------
+        # ---------------- First greeting ----------------
         if not speech:
-           
+
             open_status = is_business_open(behavior_data)
             greetings = behavior_data.get("greetings", {})
-            
+
             if open_status:
+
                 greeting = greetings.get("opening_hours_greeting", "")
                 greeting = greeting.replace("{store_name}", STORE_NAME)
+
+                response.pause(length=1)
                 response.say(greeting, voice="alice", language="en-US")
 
                 gather = Gather(
@@ -485,82 +566,154 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
                     language="en-US",
                     speechModel="phone_call"
                 )
-                call_memory["transcripts"].append({"speaker": "AI", "message": greeting})
+
                 response.append(gather)
-                return Response(content=str(response), media_type="application/xml")
-            else:
-                closed_msg = greetings.get("closed_hours_message", "We are closed.")
-                call_memory["call_type"] = "DROPPED"
-                call_memory["outcome"] = "CALL_DROPPED"
-                call_memory["transcripts"].append({"speaker": "AI", "message": closed_msg})
-                await send_call_log(call_sid)
-                response.say(closed_msg, voice="alice")
-                response.hangup()
+
+                # fallback if user silent
+                response.say(
+                    "Sorry, I didn't catch that. Could you repeat?",
+                    voice="alice"
+                )
+
+                response.redirect(f"{PUBLIC_URL}/voice")
+
+                call_memory["transcripts"].append(
+                    {"speaker": "AI", "message": greeting}
+                )
+
                 return Response(content=str(response), media_type="application/xml")
 
-        # ----------------- Process speech and AI response -----------------
+            else:
+
+                closed_msg = greetings.get(
+                    "closed_hours_message", "We are closed."
+                )
+
+                call_memory["call_type"] = "DROPPED"
+                call_memory["outcome"] = "CALL_DROPPED"
+
+                call_memory["transcripts"].append(
+                    {"speaker": "AI", "message": closed_msg}
+                )
+
+                background_tasks.add_task(send_call_log, call_sid)
+
+                response.say(closed_msg, voice="alice")
+                response.hangup()
+
+                return Response(content=str(response), media_type="application/xml")
+
+        # ---------------- Start recording ----------------
+        if speech and not call_memory.get("recording_started"):
+            call_memory["recording_started"] = True
+            background_tasks.add_task(start_call_recording, call_sid)
+
+        # ---------------- Detect issue ----------------
         if not call_memory["issue"]:
             call_memory["issue"] = detect_issue(speech)
 
         lower_speech = speech.lower()
 
-
+        # ---------------- Exit intent ----------------
         if is_exit_intent(speech):
+
             closing_message = f"Thank you for calling {STORE_NAME}. Have a great day."
+
             response.say(closing_message, voice="alice")
-            
-            call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
-            call_memory["transcripts"].append({"speaker": "AI", "message": closing_message})
+
+            call_memory["transcripts"].append(
+                {"speaker": "CUSTOMER", "message": speech}
+            )
+            call_memory["transcripts"].append(
+                {"speaker": "AI", "message": closing_message}
+            )
+
             call_memory["call_type"] = "AI_RESOLVED"
             call_memory["outcome"] = "QUOTE_PROVIDED"
 
             response.hangup()
+
             background_tasks.add_task(send_call_log, call_sid)
 
             return Response(content=str(response), media_type="application/xml")
 
-        # Manager transfer
+        # ---------------- Manager transfer ----------------
         for item in behavior_data.get("auto_transfer_keywords", []):
+
             keyword = item.get("keyword", "").lower()
+
             if keyword and keyword in lower_speech:
+
                 manager_number = os.getenv("MANAGER_NUMBER")
+
                 if manager_number:
+
                     call_memory["call_type"] = "WARM_TRANSFER"
                     call_memory["outcome"] = "ESCALATED"
-                    call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
-                    call_memory["transcripts"].append({"speaker": "AI", "message": "Connecting you to a human agent."})
-                    response.say("Connecting you to a human agent.", voice="alice")
+
+                    call_memory["transcripts"].append(
+                        {"speaker": "CUSTOMER", "message": speech}
+                    )
+
+                    call_memory["transcripts"].append(
+                        {"speaker": "AI", "message": "Connecting you to a human agent."}
+                    )
+
+                    response.say(
+                        "Connecting you to a human agent.",
+                        voice="alice"
+                    )
+
                     response.dial(manager_number, timeout=20)
-                    await send_call_log(call_sid)
+
+                    background_tasks.add_task(send_call_log, call_sid)
+
                     return Response(content=str(response), media_type="application/xml")
 
-        # Appointment booking
+        # ---------------- Appointment booking ----------------
         if any(word in lower_speech for word in ["appointment", "book", "schedule"]):
+
             call_memory["call_type"] = "APPOINTMENT"
             call_memory["outcome"] = "APPOINTMENT_BOOKED"
-            response.say(
-               "Thank you! I have sent the appointment link. You can get your appointment from there.",
-               voice="alice"
+
+            message = "Thank you! I have sent the appointment link."
+
+            response.say(message, voice="alice")
+
+            call_memory["transcripts"].append(
+                {"speaker": "CUSTOMER", "message": speech}
             )
-            call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
-            call_memory["transcripts"].append({"speaker": "AI", "message": "Thank you! I have sent the appointment link. You can get your appointment from there." })
+
+            call_memory["transcripts"].append(
+                {"speaker": "AI", "message": message}
+            )
+
             response.hangup()
 
             try:
                 send_appointment_link(call_memory["phone_number"])
             except Exception as e:
                 print("❌ Failed sending appointment link:", e)
-            
+
             background_tasks.add_task(send_call_log, call_sid)
 
             return Response(content=str(response), media_type="application/xml")
-        # RAG + AI
+
+        # ---------------- RAG Retrieval ----------------
         if retriever is None:
+
             call_memory["call_type"] = "DROPPED"
             call_memory["outcome"] = "CALL_DROPPED"
-            await send_call_log(call_sid)
-            response.say("System is initializing. Please try again shortly.", voice="alice")
+
+            background_tasks.add_task(send_call_log, call_sid)
+
+            response.say(
+                "System is initializing. Please try again shortly.",
+                voice="alice"
+            )
+
             response.hangup()
+
             return Response(content=str(response), media_type="application/xml")
 
         try:
@@ -569,47 +722,67 @@ async def voice(request: Request, background_tasks: BackgroundTasks):
             print("❌ RAG ERROR:", e)
             docs = []
 
-        context = "\n\n".join([doc.page_content for doc in docs if hasattr(doc, "page_content")]) if docs else ""
+        context = "\n\n".join(
+            [doc.page_content for doc in docs if hasattr(doc, "page_content")]
+        ) if docs else ""
 
+        # ---------------- AI Prompt ----------------
         tone = behavior_data.get("tone", "friendly")
+
         system_behavior = f"""
 You are a retail call assistant for {STORE_NAME}.
-VOICE STYLE:
-- Tone: {tone}
-RULES:
+Tone: {tone}
+
+Rules:
 - Answer ONLY from retrieved knowledge.
 - Keep responses short and voice-friendly.
 - If unsure, ask again.
-- Never mention internal documents.
 """
+
         messages = [{"role": "system", "content": system_behavior}]
+
         if call_memory["messages"]:
-            messages += call_memory["messages"]
+            messages += call_memory["messages"][-10:]
 
         messages.append({
             "role": "user",
             "content": f"Retrieved Knowledge:\n{context}\n\nUser Question:\n{speech}"
         })
 
+        # ---------------- AI Call ----------------
         ai_response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0.2,
-            max_tokens=150
+            max_tokens=60,
+            timeout=20
         )
+
         reply = ai_response.choices[0].message.content.strip()
 
-        # Save transcript
-        call_memory["transcripts"].append({"speaker": "CUSTOMER", "message": speech})
-        call_memory["transcripts"].append({"speaker": "AI", "message": reply})
-        call_memory["messages"].append({"role": "user", "content": speech})
-        call_memory["messages"].append({"role": "assistant", "content": reply})
+        # ---------------- Save transcript ----------------
+        call_memory["transcripts"].append(
+            {"speaker": "CUSTOMER", "message": speech}
+        )
+
+        call_memory["transcripts"].append(
+            {"speaker": "AI", "message": reply}
+        )
+
+        call_memory["messages"].append(
+            {"role": "user", "content": speech}
+        )
+
+        call_memory["messages"].append(
+            {"role": "assistant", "content": reply}
+        )
 
         print("🤖 AI reply:", reply)
 
+        response.pause(length=1)
         response.say(reply, voice="alice", language="en-US")
 
-        # Continue recording + listening for next input
+        # ---------------- Continue listening ----------------
         gather = Gather(
             input="speech",
             action=f"{PUBLIC_URL}/voice",
@@ -619,20 +792,33 @@ RULES:
             language="en-US",
             speechModel="phone_call"
         )
+
         response.append(gather)
+
+        response.say(
+            "Sorry, I didn't catch that. Could you repeat?",
+            voice="alice"
+        )
+
+        response.redirect(f"{PUBLIC_URL}/voice")
 
         return Response(content=str(response), media_type="application/xml")
 
     except Exception as e:
+
         print("❌ ERROR:", e)
+
         if call_sid in CALL_SESSIONS:
             CALL_SESSIONS[call_sid]["call_type"] = "DROPPED"
             CALL_SESSIONS[call_sid]["outcome"] = "CALL_DROPPED"
-            await send_call_log(call_sid)
+            background_tasks.add_task(send_call_log, call_sid)
+
         response = VoiceResponse()
         response.say("Sorry. There was a server error.", voice="alice")
         response.hangup()
+
         return Response(content=str(response), media_type="application/xml")
+
 # ==========================================
 # SYSTEM UPDATE ENDPOINT
 # ==========================================
@@ -666,7 +852,7 @@ async def update_system():
 @app.post("/update-rag")
 async def update_rag(background_tasks: BackgroundTasks):
     try:
-        background_tasks.add_task(rebuild_vectorstore)
+        background_tasks.add_task(rebuild_vectorstore_safe)
         print("RAG update endpoint got hit.")
 
         return {
@@ -684,64 +870,69 @@ async def update_rag(background_tasks: BackgroundTasks):
 # ------------------------------------------
 # RECORDING STATUS - handle segments
 # ------------------------------------------
+
 @app.post("/recording-status")
-async def recording_status(request: Request):
+async def recording_status(request: Request, background_tasks: BackgroundTasks):
     form = await request.form()
     call_sid = form.get("CallSid")
     recording_url = form.get("RecordingUrl")
 
-    print(f"Recording URL for {call_sid}: {recording_url}")
+    print(f"Recording callback: {call_sid} -> {recording_url}")
 
-    # Ensure session exists
+    if not recording_url:
+        return PlainTextResponse("OK")
+
     if call_sid not in CALL_SESSIONS:
         CALL_SESSIONS[call_sid] = {"recordings": []}
 
     CALL_SESSIONS[call_sid].setdefault("recordings", []).append(recording_url)
 
-    # Download segment
-    twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+    # Run the download in background (non-blocking)
+    background_tasks.add_task(download_recording, call_sid, recording_url)
 
-    try:
-        r = requests.get(recording_url + ".mp3", auth=(twilio_sid, twilio_token), timeout=30)
-        r.raise_for_status()
-
-        segment_index = len(CALL_SESSIONS[call_sid]["recordings"])
-        file_path = os.path.join(RECORDINGS_DIR, f"{call_sid}_{segment_index}.mp3")
-        with open(file_path, "wb") as f:
-            f.write(r.content)
-
-        print(f"Segment saved to {file_path}")
-
-    except requests.RequestException as e:
-        print(f"Failed to download recording segment for {call_sid}: {e}")
-
-    return "OK"
+    # Respond immediately to Twilio
+    return PlainTextResponse("OK")
 
 
 # ------------------------------------------
-# RECORDING COMPLETE - merge segments
+# RECORDING COMPLETE - Merge Segments
 # ------------------------------------------
+
+
 @app.post("/recording-complete")
 async def recording_complete(request: Request):
     form = await request.form()
     call_sid = form.get("CallSid")
     print(f"[COMPLETE] Recording complete for {call_sid}")
 
-    if call_sid in CALL_SESSIONS:
-        segments = CALL_SESSIONS[call_sid].get("recordings", [])
-        if segments:
-            combined = AudioSegment.empty()
-            for idx, url in enumerate(segments, start=1):
-                file_path = os.path.join(RECORDINGS_DIR, f"{call_sid}_{idx}.mp3")
-                combined += AudioSegment.from_mp3(file_path)
+    if call_sid not in CALL_SESSIONS:
+        print(f"No session found for {call_sid}")
+        return "", 200
 
-            # Export full call
-            full_file = os.path.join(RECORDINGS_DIR, f"{call_sid}_full.mp3")
-            combined.export(full_file, format="mp3")
-            CALL_SESSIONS[call_sid]["audio_url"] = full_file
+    segments = CALL_SESSIONS[call_sid].get("recordings", [])
+    if not segments:
+        print(f"No segments found for {call_sid}")
+        return "", 200
 
-            print(f"✅ Full call recording saved as {full_file}")
+    # Wait for all segments to be downloaded
+    combined = AudioSegment.empty()
+    for idx, _ in enumerate(segments, start=1):
+        file_path = os.path.join(RECORDINGS_DIR, f"{call_sid}_{idx}.mp3")
+        wait_time = 0
+        while not os.path.exists(file_path) and wait_time < 10:
+            time.sleep(0.5)  # wait until download finishes
+            wait_time += 0.5
 
+        if os.path.exists(file_path):
+            combined += AudioSegment.from_mp3(file_path)
+        else:
+            print(f"❌ Segment {idx} for {call_sid} not found, skipping")
+
+    # Export full call
+    full_file = os.path.join(RECORDINGS_DIR, f"{call_sid}_full.mp3")
+    combined.export(full_file, format="mp3")
+    CALL_SESSIONS[call_sid]["audio_url"] = full_file
+
+    print(f"✅ Full call recording saved as {full_file}")
 
     return "", 200
